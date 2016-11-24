@@ -9,6 +9,9 @@ var port = argv["com"];
 var maxBright = argv["maxBright"] || defaultBright;
 var help = argv["help"];
 var fps = argv["fps"] || defaultFPS;
+var offTime = argv["offTime"] || "0"
+
+var waitGap = false;
 
 var redStaticColour = argv["redColor"] || (argv["redColour"]);
 var greenStaticColour = argv["greenColor"] || (argv["greenColour"]);
@@ -140,15 +143,16 @@ function random(low, high) {
 function showHelp() {
     console.log("Usage:");
     console.log("   --help          [ Shows this help message ]");
-    console.log("   --com           [ The com port to use.  COMX in windows, /dev/usbx in linux.  Leave blank to allow Johnny-Five to find the first port.]");
-    console.log("   --maxBright     [ The maximum brightness to achive.  0 - 255.  Defaults to " + defaultBright + " ]");
-    console.log("   --fps           [ The frames per second to attempt to achive.  This is hardware limiited.  Defaults to " + defaultFPS + " ]");
-    console.log("   --redColour     [ The red component for a single colour to light the LEDs to ]");
-    console.log("   --redGreen      [ The green component for a single colour to light the LEDs to ]");
-    console.log("   --redBlue       [ The blue component for a single colour to light the LEDs to ]");
-    console.log("   --redColor      [ Alias for --redColour ]");
-    console.log("   --greenColor    [ Alias for --greenColour ]");
-    console.log("   --blueColor     [ Alias for --blueColour ]");
+    console.log("   --com comx      [ The com port to use.  COMX in windows, /dev/usbx in linux.  Leave blank to allow Johnny-Five to find the first port.]");
+    console.log("   --maxBright n   [ The maximum brightness to achive.  0 - 255.  Defaults to " + defaultBright + " ]");
+    console.log("   --fps n         [ The frames per second to attempt to achive.  This is hardware limiited.  Defaults to " + defaultFPS + " ]");
+    console.log("   --redColour n   [ The red component for a single colour to light the LEDs to ]");
+    console.log("   --redGreen n    [ The green component for a single colour to light the LEDs to ]");
+    console.log("   --redBlue n     [ The blue component for a single colour to light the LEDs to ]");
+    console.log("   --redColor n    [ Alias for --redColour ]");
+    console.log("   --greenColor n  [ Alias for --greenColour ]");
+    console.log("   --blueColor n   [ Alias for --blueColour ]");
+    console.log("   --offTime n     [ Amount of time in ms to wait between pulses.  No wait by default.]")
 }
 
 function showSettings() {
@@ -177,31 +181,37 @@ function showSettings() {
     console.log("   Red Static components is: " + redStatus);
     console.log("   Green Static components is: " + greenStatus);
     console.log("   Blue Static components is: " + blueStatus);
+    console.log("   Off time is: " + offTime);
     console.log("");
 }
 
 function pulseFunction() {
-            
-            if (pulseCycle == 0) {
-                setColours();
-                calcIntervals();
-            }
-            if (pulseCycle >(maxBright -1)) {
-                pulseDirection = -1;
-            }
+    if (!waitGap) {
+        if (pulseCycle == 0) {
+            setColours();
+            calcIntervals();
+        }
 
-            if (pulseCycle <0) {
-                pulseDirection = 1;
-            }
+        if (pulseCycle >(maxBright -1)) {
+            pulseDirection = -1;
+        }
 
-            pulseColour = getPulseColour(redInterval, greenInterval, blueInterval, pulseCycle);
+        if (pulseCycle <0) {
+            pulseDirection = 1;
+            waitGap = true;
 
-            strip.color(pulseColour);
-            strip.show();
-            
-            pulseCycle+= pulseDirection;
-            
-    
+            var wait = setTimeout(function() {
+                waitGap = false;
+            }, offTime);
+        }
+
+        pulseColour = getPulseColour(redInterval, greenInterval, blueInterval, pulseCycle);
+
+        strip.color(pulseColour);
+        strip.show();
+        
+        pulseCycle+= pulseDirection;
+    }
 }
 
 function stripReady() {
