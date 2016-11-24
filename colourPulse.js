@@ -2,11 +2,14 @@ const Five = require("johnny-five");
 const Pixel = require("node-pixel");
 const argv = require("minimist")(process.argv.slice(2));
 
+const defaultBright = 30;
+const defaultFPS = 30;
 
-var port = argv["com"] || "COM1";
-var maxBright = argv["maxBright"] || "30"
-var help = argv["help"]
-var fps = argv["fps"] || 60
+var port = argv["com"];
+var maxBright = argv["maxBright"] || defaultBright;
+var help = argv["help"];
+var fps = argv["fps"] || defaultFPS;
+
 var redStaticColour = argv["redColor"] || (argv["redColour"]);
 var greenStaticColour = argv["greenColor"] || (argv["greenColour"]);
 var blueStaticColour = argv["blueColor"] || (argv["blueColour"]);
@@ -41,28 +44,10 @@ var greenInterval = 0;
 var blueInterval = 0;
 
 if (help == true) {
-    console.log("Usage:");
-    console.log("   --help          [ Shows this help message ]");
-    console.log("   --com           [ The com port to use.  COMX in windows, /dev/usbx in linux.  Defaults to COM1 ]");
-    console.log("   --maxBright     [ The maximum brightness to achive.  0 - 255.  Defaults to 30 ]");
-    console.log("   --fps           [ The frames per second to attempt to achive.  This is hardware limiited.  Defaults to 60 ]");
-    console.log("   --redColour     [ The red component for a single colour to light the LEDs to ]");
-    console.log("   --redGreen      [ The green component for a single colour to light the LEDs to ]");
-    console.log("   --redBlue       [ The blue component for a single colour to light the LEDs to ]");
-    console.log("   --redColor      [ Alias for --redColour ]");
-    console.log("   --greenColor    [ Alias for --greenColour ]");
-    console.log("   --blueColor     [ Alias for --blueColour ]");
+    showHelp();
 }
 else {
-    console.log("Using the following settings:");
-    console.log("   COM Port: " + port);
-    console.log("   Max Brightness: " + maxBright);
-    console.log("   Max FPS: " + fps);
-    console.log("   Red Static components is: " + redStaticColour || "off");
-    console.log("   Green Static components is: " + greenStaticColour || "off");
-    console.log("   Blue Static components is: " + blueStaticColour || "off");
-    console.log("");
-
+    showSettings();
     runBoard();
 }
 
@@ -77,32 +62,7 @@ function runBoard() {
             strips: [ {pin: pin, length: stripLength}]
         });
 
-        var delay = fps;
-
-        strip.on("ready", function() {
-            var pulse = setInterval(function(){
-            
-            if (pulseCycle == 0) {
-                setColours();
-                calcIntervals();
-            }
-            if (pulseCycle >(maxBright -1)) {
-                pulseDirection = -1;
-            }
-
-            if (pulseCycle <0) {
-                pulseDirection = 1;
-            }
-
-            pulseColour = getPulseColour(redInterval, greenInterval, blueInterval, pulseCycle);
-
-            strip.color(pulseColour);
-            strip.show();
-            
-            pulseCycle+= pulseDirection;
-                
-            }, 1000/delay);
-        });
+        strip.on("ready", stripReady);
     });
 }
 
@@ -175,4 +135,75 @@ function random(low, high) {
     var rnd = Math.random() * (high - low) + low;
 
     return rnd;
+}
+
+function showHelp() {
+    console.log("Usage:");
+    console.log("   --help          [ Shows this help message ]");
+    console.log("   --com           [ The com port to use.  COMX in windows, /dev/usbx in linux.  Leave blank to allow Johnny-Five to find the first port.]");
+    console.log("   --maxBright     [ The maximum brightness to achive.  0 - 255.  Defaults to " + defaultBright + " ]");
+    console.log("   --fps           [ The frames per second to attempt to achive.  This is hardware limiited.  Defaults to " + defaultFPS + " ]");
+    console.log("   --redColour     [ The red component for a single colour to light the LEDs to ]");
+    console.log("   --redGreen      [ The green component for a single colour to light the LEDs to ]");
+    console.log("   --redBlue       [ The blue component for a single colour to light the LEDs to ]");
+    console.log("   --redColor      [ Alias for --redColour ]");
+    console.log("   --greenColor    [ Alias for --greenColour ]");
+    console.log("   --blueColor     [ Alias for --blueColour ]");
+}
+
+function showSettings() {
+    var redStatus = "off";
+    var greenStatus = "off";
+    var blueStatus = "off";
+
+    if (redStaticColour != undefined) {
+        redStatus = redStaticColour
+    } 
+
+    if (greenStaticColour != undefined) {
+        greeenStatus = greenStaticColour
+    } 
+
+    if (blueStaticColour != undefined) {
+        blueStatus = blueStaticColour
+    } 
+    
+    console.log("");
+    console.log("");
+    console.log("Using the following settings:");
+    console.log("   COM Port: " + (port ? port : "first available"));
+    console.log("   Max Brightness: " + maxBright);
+    console.log("   Max FPS: " + fps);
+    console.log("   Red Static components is: " + redStatus);
+    console.log("   Green Static components is: " + greenStatus);
+    console.log("   Blue Static components is: " + blueStatus);
+    console.log("");
+}
+
+function pulseFunction() {
+            
+            if (pulseCycle == 0) {
+                setColours();
+                calcIntervals();
+            }
+            if (pulseCycle >(maxBright -1)) {
+                pulseDirection = -1;
+            }
+
+            if (pulseCycle <0) {
+                pulseDirection = 1;
+            }
+
+            pulseColour = getPulseColour(redInterval, greenInterval, blueInterval, pulseCycle);
+
+            strip.color(pulseColour);
+            strip.show();
+            
+            pulseCycle+= pulseDirection;
+            
+    
+}
+
+function stripReady() {
+    var pulse = setInterval(pulseFunction, 1000 / fps)
 }
