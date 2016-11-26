@@ -6,21 +6,16 @@ const defaultBright = 30;
 const defaultFPS = 30;
 const defaultStripLength = 50;
 
+
 var port = argv["com"];
 var maxBright = argv["maxBright"] || defaultBright;
 var help = argv["help"];
 var fps = argv["fps"] || defaultFPS;
-var offTime = argv["offTime"] || "0"
 var stripLength = argv["stripLength"] || defaultStripLength;
-
-var waitGap = false;
-var pulseEven = true;
 
 var redStaticColour = argv["redColor"] || (argv["redColour"]);
 var greenStaticColour = argv["greenColor"] || (argv["greenColour"]);
 var blueStaticColour = argv["blueColor"] || (argv["blueColour"]);
-
-var alternate = argv["alternate"];
 
 if (maxBright > 255) {
     maxBright = 255;
@@ -42,8 +37,8 @@ var red = 30;
 var green = 100;
 var blue = 150;
 
-var pulseCycle = 0;
-var pulseDirection = 1;
+var chaseCycle = 0;
+var chaseDirection = 1;
 
 var redInterval = 0;
 var greenInterval = 0;
@@ -63,84 +58,16 @@ function runBoard() {
     Board.on("ready", function() {
         strip = new Pixel.Strip({
             board: this,
-            color_order: Pixel.COLOR_ORDER.RGB,
             controller: "FIRMATA",
-            strips: [ {pin: pin, length: stripLength} ]
+            strips: [ { pin: pin, length: stripLength } ]
         });
 
         strip.on("ready", stripReady);
     });
 }
 
-function getPulseColour(redInterval, greenInterval, blueInterval, pulseCycle) {
-    var redPulse = Math.ceil((redInterval * pulseCycle));
-    var greenPulse = Math.ceil((greenInterval * pulseCycle));
-    var bluePulse = Math.ceil((blueInterval * pulseCycle));
-    
-    return "rgb(" + greenPulse + "," +  redPulse + "," +  bluePulse + ")";
-}
-
-function setColours(r, g, b) {
-    if (isNaN(r)) {
-        r = random();
-    }
-
-    if (isNaN(g)) {
-        g = random();
-    }
-
-    if (isNaN(b)) {
-        b = random();
-    }
-
-    red = redStaticColour;
-    if (red == undefined) {
-        red = r;
-    }
-    
-    green = greenStaticColour;
-    if (green == undefined) {
-        green = g;
-    }
-
-    blue = blueStaticColour;
-    if (blue == undefined) {
-        blue = b;
-    }
-}
-
-function calcIntervals() {
-
-    redInterval = 0;
-    if (red > 0) {
-        redInterval = red / 255;
-    }
-
-    blueInterval = 0;
-    if (blue > 0) {
-        blueInterval = blue / 255;
-    }
-
-    greenInterval = 0;
-    if (green > 0) {
-        greenInterval = green / 255;
-    }
-
-}
-
-function random(low, high) {
-
-    if (isNaN(low)) {
-        low = 0;
-    }
-
-    if (isNaN(high)) {
-        high = 255;
-    }
-
-    var rnd = Math.random() * (high - low) + low;
-
-    return rnd;
+function stripReady() {
+    var chase = setInterval(chaseFunction, 1000 / fps)
 }
 
 function showHelp() {
@@ -155,8 +82,6 @@ function showHelp() {
     console.log("   --redColor n    [ Alias for --redColour ]");
     console.log("   --greenColor n  [ Alias for --greenColour ]");
     console.log("   --blueColor n   [ Alias for --blueColour ]");
-    console.log("   --offTime n     [ Amount of time in ms to wait between pulses.  No wait by default.]")
-    console.log("   --alternate     [ Strobe alternate sets of lights ]");
     console.log("   --stripLength n [ The length of the strip to drive.  Defaults to " + stripLength + " ]")
 }
 
@@ -176,11 +101,6 @@ function showSettings() {
     if (blueStaticColour != undefined) {
         blueStatus = blueStaticColour
     } 
-
-    var alternateStatus = "off";
-    if (alternate != undefined) {
-        alternateStatus = "on";
-    }
     
     console.log("");
     console.log("");
@@ -191,68 +111,82 @@ function showSettings() {
     console.log("   Red Static components is: " + redStatus);
     console.log("   Green Static components is: " + greenStatus);
     console.log("   Blue Static components is: " + blueStatus);
-    console.log("   Off time is: " + offTime);
-    console.log("   Alternate: " + alternateStatus)
     console.log("   length: " + stripLength)
     console.log("");
 }
 
-function pulseFunction() {
-    if (!waitGap) {
-        if (pulseCycle == 0) {
-            setColours();
-            calcIntervals();
-        }
+function chaseFunction() {
 
-        if (pulseCycle > (maxBright)) {
-            pulseDirection = -1;
-        }
+    if (chaseCycle == 0) {
+        setColours();
+    }
 
-        if (pulseCycle < 0) {
-            pulseDirection = 1;
-            waitGap = true;
-            pulseEven = !pulseEven;
-            
-            var wait = setTimeout(function() {
-                waitGap = false;
-            }, offTime);
-        }
+    if (chaseCycle >= (stripLength - 1)) {
+        chaseDirection = -1;
+    }
 
-        pulseColour = getPulseColour(redInterval, greenInterval, blueInterval, pulseCycle);
+    if (chaseCycle <=0) {
+        chaseDirection = 1;
+    }
 
-        if (!alternate) {
-            strip.color(pulseColour);
-            strip.show();
-        }
-        else {
-            alternateStrip(pulseColour);
-            strip.show();
-        }
-        
-        pulseCycle+= pulseDirection;
+    chaseColour = setChaseColour(red, green, blue, chaseCycle);
+    strip.color("black");
+    strip.pixel(chaseCycle).color(chaseColour);
+    strip.show(); 
+    
+    chaseCycle += chaseDirection;
+
+    
+}
+
+function setColours(r, g, b) {
+    if (isNaN(r)) {
+        r = (random() / 255) * maxBright;
+    }
+
+    if (isNaN(g)) {
+        g = (random() / 255) * maxBright;
+    }
+
+    if (isNaN(b)) {
+        b = (random() / 255) * maxBright;
+    }
+
+    red = redStaticColour;
+    if (red == undefined) {
+        red = r;
+    }
+    
+    green = greenStaticColour;
+    if (green == undefined) {
+        green = g;
+    }
+
+    blue = blueStaticColour;
+    if (blue == undefined) {
+        blue = b;
     }
 }
 
-function stripReady() {
-    var pulse = setInterval(pulseFunction, 1000 / fps)
-}
+function random(low, high) {
 
-function alternateStrip(pulseColour) {
-    var j = 0;
-    var i = 0;
-    if (!pulseEven) {
-        i++;
+    if (isNaN(low)) {
+        low = 0;
     }
 
-    for (i; i < stripLength; i+=2) {
-        setAlternatePixel(pulseColour, i);
+    if (isNaN(high)) {
+        high = 255;
     }
+
+    var rnd = Math.random() * (high - low) + low;
+
+    return rnd;
 }
 
-function setAlternatePixel(pulseColour, location) {
-    strip.pixel(location).color(pulseColour);
-}
-
-function isEven(n) {
-    return n == parseFloat(n) && !( n % 2 );
+function setChaseColour(red, green, blue, chaseCycle) {
+    var redChase = Math.ceil(red);
+    var greenChase = Math.ceil(green);
+    var blueChase = Math.ceil(blue);
+    
+    return "rgb(" + greenChase + "," +  redChase + "," +  blueChase + ")";
 }
